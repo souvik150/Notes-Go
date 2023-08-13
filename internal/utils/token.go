@@ -2,11 +2,11 @@ package usercontrollers
 
 import (
 	"github.com/dgrijalva/jwt-go"
-	"github.com/souvik150/golang-fiber/initializers"
+	"github.com/souvik150/golang-fiber/config"
+	"github.com/souvik150/golang-fiber/internal/models"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/souvik150/golang-fiber/models"
 )
 
 func generateToken(userID uuid.UUID, secretKey string, expiration time.Duration, user *models.User) (string, error) {

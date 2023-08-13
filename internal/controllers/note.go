@@ -3,12 +3,13 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	database "github.com/souvik150/golang-fiber/internal/database"
+	"github.com/souvik150/golang-fiber/internal/middleware"
+	models "github.com/souvik150/golang-fiber/internal/models"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/souvik150/golang-fiber/initializers"
-	"github.com/souvik150/golang-fiber/models"
 	"gorm.io/gorm"
 )
 
@@ -22,7 +23,7 @@ func CreateNoteHandler(c *fiber.Ctx) error {
 	// Get the user ID from the authenticated user (adjust according to your authentication logic)
 	userID := c.Locals("userID").(uuid.UUID)
 
-	errors := models.ValidateStruct(payload)
+	errors := middleware.ValidateStruct(payload)
 	if errors != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(errors)
 	}
@@ -38,7 +39,7 @@ func CreateNoteHandler(c *fiber.Ctx) error {
 		UpdatedAt: now,
 	}
 
-	result := initializers.DB.Create(&newNote)
+	result := database.DB.Create(&newNote)
 
 	if result.Error != nil && strings.Contains(result.Error.Error(), "duplicate key value violates unique") {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"status": "fail", "message": "Title already exists, please use another title"})
@@ -58,7 +59,7 @@ func FindNotes(c *fiber.Ctx) error {
 	offset := (intPage - 1) * intLimit
 
 	var notes []models.Note
-	results := initializers.DB.Limit(intLimit).Offset(offset).Find(&notes)
+	results := database.DB.Limit(intLimit).Offset(offset).Find(&notes)
 	if results.Error != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": results.Error})
 	}
@@ -78,7 +79,7 @@ func UpdateNote(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(uuid.UUID)
 
 	var note models.Note
-	result := initializers.DB.First(&note, "id = ? AND user_id = ?", noteID, userID)
+	result := database.DB.First(&note, "id = ? AND user_id = ?", noteID, userID)
 	if err := result.Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "fail", "message": "No note with that ID exists"})
@@ -103,7 +104,7 @@ func UpdateNote(c *fiber.Ctx) error {
 
 	updates["updated_at"] = time.Now()
 
-	initializers.DB.Model(&note).Updates(updates)
+	database.DB.Model(&note).Updates(updates)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"status": "success", "data": fiber.Map{"note": note}})
 }
@@ -112,7 +113,7 @@ func FindNoteById(c *fiber.Ctx) error {
 	noteId := c.Params("noteId")
 
 	var note models.Note
-	result := initializers.DB.First(&note, "id = ?", noteId)
+	result := database.DB.First(&note, "id = ?", noteId)
 	if err := result.Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "fail", "message": "No note with that Id exists"})
@@ -126,7 +127,7 @@ func FindNoteById(c *fiber.Ctx) error {
 func DeleteNote(c *fiber.Ctx) error {
 	noteId := c.Params("noteId")
 
-	result := initializers.DB.Delete(&models.Note{}, "id = ?", noteId)
+	result := database.DB.Delete(&models.Note{}, "id = ?", noteId)
 
 	if result.RowsAffected == 0 {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "fail", "message": "No note with that Id exists"})

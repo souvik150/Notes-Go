@@ -4,8 +4,8 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/souvik150/golang-fiber/initializers"
-	"github.com/souvik150/golang-fiber/models"
+	database "github.com/souvik150/golang-fiber/internal/database"
+	"github.com/souvik150/golang-fiber/internal/models"
 )
 
 func TokenValidation(c *fiber.Ctx) error {
@@ -37,7 +37,7 @@ func TokenValidation(c *fiber.Ctx) error {
 
 	// Check if the user exists in the database
 	var user models.User
-	result := initializers.DB.Where("id = ?", userID).First(&user)
+	result := database.DB.Where("id = ?", userID).First(&user)
 	if result.Error != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": "User not found"})
 	}
