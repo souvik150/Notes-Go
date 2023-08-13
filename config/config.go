@@ -17,6 +17,10 @@ type Config struct {
 	AccessTokenExpiry  time.Duration `mapstructure:"ACCESS_TOKEN_EXPIRY"`
 	RefreshTokenExpiry time.Duration `mapstructure:"REFRESH_TOKEN_EXPIRY"`
 	ClientOrigin       string        `mapstructure:"CLIENT_ORIGIN"`
+	AWSBucketName      string        `mapstructure:"AWS_BUCKET_NAME"`
+	AWSRegion          string        `mapstructure:"AWS_REGION"`
+	AWSAccessKey       string        `mapstructure:"AWS_ACCESS_KEY"`
+	AWSSecretKey       string        `mapstructure:"AWS_SECRET_KEY"`
 }
 
 func LoadConfig(path string) (config Config, err error) {

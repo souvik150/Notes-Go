@@ -2,65 +2,59 @@ package controllers
 
 import (
 	"github.com/gofiber/fiber/v2"
-	database "github.com/souvik150/golang-fiber/internal/database"
-	models "github.com/souvik150/golang-fiber/internal/models"
-	token "github.com/souvik150/golang-fiber/internal/utils"
-	"golang.org/x/crypto/bcrypt"
-	"time"
+	"github.com/souvik150/golang-fiber/internal/models"
+	"github.com/souvik150/golang-fiber/internal/services"
+	"log"
+	"mime/multipart"
 )
 
 func SignupUser(c *fiber.Ctx) error {
-	var payload models.RegisterUserSchema
-
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+	form, err := c.MultipartForm()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to hash password"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": "Failed to process form data"})
 	}
 
-	newUser := models.User{
-		Username:  payload.Username,
-		Email:     payload.Email,
-		Password:  string(hashedPassword),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+	// Get user data from the form
+	username := form.Value["username"][0]
+	email := form.Value["email"][0]
+	password := form.Value["password"][0]
+
+	// Handle profile picture upload
+	files := form.File["profilePic"]
+	pic := ""
+
+	for _, file := range files {
+		fileHeader := file
+
+		f, err := fileHeader.Open()
+		if err != nil {
+			return err
+		}
+		defer func(f multipart.File) {
+			err := f.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}(f)
+
+		uploadedURL, err := services.UploadProfilePic(f, fileHeader)
+		pic = uploadedURL
+	}
+	// Create a payload for user registration
+	payload := &models.RegisterUserSchema{
+		Username:     username,
+		Email:        email,
+		Password:     password,
+		ProfileImage: pic,
 	}
 
-	result := database.DB.Create(&newUser)
-	if result.Error != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": result.Error.Error()})
-	}
-
-	accessToken, err := token.GenerateAccessToken(&newUser)
+	authResponse, err := services.SignupUser(payload)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to generate access token"})
+		// Handle error
+		log.Fatal(err)
 	}
 
-	refreshToken, err := token.GenerateRefreshToken(&newUser)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to generate refresh token"})
-	}
-
-	// Store the refresh token in the database
-	refreshTokenEntry := models.RefreshToken{
-		UserID: newUser.ID,
-		Token:  refreshToken,
-	}
-	refreshTokenResult := database.DB.Create(&refreshTokenEntry)
-	if refreshTokenResult.Error != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": refreshTokenResult.Error.Error()})
-	}
-
-	authResponse := models.AuthResponse{
-		UserID:       newUser.ID,
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"status": "success", "data": fiber.Map{"user": newUser, "authResponse": authResponse}})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"status": "success", "data": fiber.Map{"authResponse": authResponse}})
 }
 
 func LoginUser(c *fiber.Ctx) error {
@@ -70,41 +64,10 @@ func LoginUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
 	}
 
-	var user models.User
-	result := database.DB.Where("username = ?", payload.Username).First(&user)
-	if result.Error != nil {
+	authResponse, err := services.LoginUser(&payload)
+	if err != nil {
+		// Handle error
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": "Invalid credentials"})
-	}
-
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password))
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": "Invalid credentials"})
-	}
-
-	accessToken, err := token.GenerateAccessToken(&user)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to generate access token"})
-	}
-
-	refreshToken, err := token.GenerateRefreshToken(&user)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to generate refresh token"})
-	}
-
-	// Store the refresh token in the database
-	refreshTokenEntry := models.RefreshToken{
-		UserID: user.ID,
-		Token:  refreshToken,
-	}
-	refreshTokenResult := database.DB.Create(&refreshTokenEntry)
-	if refreshTokenResult.Error != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": refreshTokenResult.Error.Error()})
-	}
-
-	authResponse := models.AuthResponse{
-		UserID:       user.ID,
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"status": "success", "data": fiber.Map{"authResponse": authResponse}})
