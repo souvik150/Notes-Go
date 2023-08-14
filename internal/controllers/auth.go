@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/souvik150/golang-fiber/internal/models"
 	"github.com/souvik150/golang-fiber/internal/services"
+	"github.com/souvik150/golang-fiber/internal/utils"
 	"log"
 	"mime/multipart"
 )
@@ -37,7 +38,7 @@ func SignupUser(c *fiber.Ctx) error {
 			}
 		}(f)
 
-		uploadedURL, err := services.UploadProfilePic(f, fileHeader)
+		uploadedURL, err := utils.UploadFile(f, fileHeader)
 		pic = uploadedURL
 	}
 	// Create a payload for user registration

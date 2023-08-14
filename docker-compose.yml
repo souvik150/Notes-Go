@@ -9,5 +9,19 @@ services:
       - progresDB:/data/postgres
     env_file:
       - .env
+  api:
+    build: .
+    ports:
+      - "8080"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - api
 volumes:
   progresDB:
