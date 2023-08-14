@@ -28,13 +28,13 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	apiGroup := app.Group("/api/v1")
+	apiGroup := app.Group("/v1")
 
 	routes.AuthRoutes(apiGroup)
 	//routes.UserRoutes(apiGroup)
 	routes.NotesRoutes(apiGroup)
 
-	apiGroup.Use(func(c *fiber.Ctx) error {
+	app.Use(func(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Route not found",
@@ -48,5 +48,5 @@ func main() {
 		})
 	})
 
-	log.Fatal(app.Listen(":8000"))
+	log.Fatal(app.Listen(config.Port))
 }
